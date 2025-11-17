@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_test/models/transaction_model.dart';
 import 'package:flutter_application_test/provider/transaction_provider.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer' as developer;
 
 import '../services/image_service.dart';
 import '../utils/format.dart';
@@ -59,46 +60,89 @@ class _TransactionFormPageState extends State<TransactionFormPage> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    final desc = _descCtrl.text.trim();
-    final amount =
-        int.tryParse(
-          _amountCtrl.text.replaceAll('.', '').replaceAll(',', ''),
-        ) ??
-        0;
-    if (amount <= 0) {
+    try {
+      if (!_formKey.currentState!.validate()) {
+        developer.log('Form validation failed');
+        return;
+      }
+
+      final desc = _descCtrl.text.trim();
+      final rawAmount = _amountCtrl.text.trim();
+      // bersihkan pemisah ribuan jika ada
+      final cleaned = rawAmount.replaceAll('.', '').replaceAll(',', '');
+      final amount = int.tryParse(cleaned);
+
+      if (amount == null) {
+        developer.log(
+          'Nominal gagal di-parse: "$rawAmount" -> cleaned: "$cleaned"',
+        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Nominal tidak valid')));
+        return;
+      }
+      if (amount <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nominal harus lebih dari 0')),
+        );
+        return;
+      }
+
+      final prov = Provider.of<TransactionProvider>(context, listen: false);
+
+      if (widget.editTx != null) {
+        final updated = TransactionModel(
+          id: widget.editTx!.id,
+          description: desc,
+          amount: amount,
+          isIncome: isIncome,
+          imagePath: imagePath,
+          date: date,
+        );
+
+        try {
+          await prov.update(widget.editTx!.id , updated);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Berhasil menyimpan perubahan')),
+          );
+        } catch (e, st) {
+          developer.log('Gagal update: $e\n$st');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menyimpan perubahan')),
+          );
+        }
+      } else {
+        final id = DateTime.now().millisecondsSinceEpoch.toString();
+        final newTx = TransactionModel(
+          id: id,
+          description: desc,
+          amount: amount,
+          isIncome: isIncome,
+          imagePath: imagePath,
+          date: date,
+        );
+
+        try {
+          await prov.add(newTx);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Transaksi berhasil ditambahkan')),
+          );
+        } catch (e, st) {
+          developer.log('Gagal menambah transaksi: $e\n$st');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Gagal menambahkan transaksi')),
+          );
+          return;
+        }
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (e, st) {
+      developer.log('Unhandled exception di _submit: $e\n$st');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nominal harus lebih dari 0')),
+        const SnackBar(content: Text('Terjadi kesalahan internal')),
       );
-      return;
     }
-
-    final prov = Provider.of<TransactionProvider>(context, listen: false);
-
-    if (widget.editTx != null) {
-      final updated = TransactionModel(
-        id: widget.editTx!.id,
-        description: desc,
-        amount: amount,
-        isIncome: isIncome,
-        imagePath: imagePath,
-        date: date,
-      );
-      await prov.update(widget.editTx!.id as String, updated);
-    } else {
-      final id = DateTime.now().millisecondsSinceEpoch.toString();
-      final newTx = TransactionModel(
-        id: id as int,
-        description: desc,
-        amount: amount,
-        isIncome: isIncome,
-        imagePath: imagePath,
-        date: date,
-      );
-      await prov.add(newTx);
-    }
-
-    if (mounted) Navigator.pop(context);
   }
 
   @override

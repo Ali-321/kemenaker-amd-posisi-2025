@@ -57,7 +57,7 @@ class TransactionListPage extends StatelessWidget {
                     ),
                   );
                   if (ok == true) {
-                    await prov.delete(tx.id as String);
+                    await prov.delete(tx.id);
                     // coba hapus image file kalau ada
                     if (tx.imagePath != null) {
                       try {

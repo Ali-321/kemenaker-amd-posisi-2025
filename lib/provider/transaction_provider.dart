@@ -16,28 +16,50 @@ class TransactionProvider extends ChangeNotifier {
 
   Future<void> add(TransactionModel tx) async {
     _items.insert(0, tx);
-    await StorageService.writeAll(_items);
-    notifyListeners();
+    try {
+      await StorageService.writeAll(_items);
+      notifyListeners();
+    } catch (e) {
+      // rollback jika write gagal
+      _items.removeWhere((t) => t.id == tx.id);
+      rethrow;
+    }
   }
 
   Future<void> update(String id, TransactionModel updated) async {
     final idx = _items.indexWhere((e) => e.id == id);
-    if (idx != -1) {
-      _items[idx] = updated;
-      // resort after update if date changed
-      _items.sort((a, b) => b.date.compareTo(a.date));
+    if (idx == -1) throw Exception('Item tidak ditemukan');
+    final old = _items[idx];
+    _items[idx] = updated;
+    _items.sort((a, b) => b.date.compareTo(a.date));
+    try {
       await StorageService.writeAll(_items);
       notifyListeners();
+    } catch (e) {
+      // rollback jika gagal
+      _items[idx] = old;
+      _items.sort((a, b) => b.date.compareTo(a.date));
+      rethrow;
     }
   }
 
   Future<void> delete(String id) async {
-    _items.removeWhere((e) => e.id == id);
-    await StorageService.writeAll(_items);
-    notifyListeners();
+    final idx = _items.indexWhere((e) => e.id == id);
+    if (idx == -1) return;
+    final removed = _items.removeAt(idx);
+    try {
+      await StorageService.writeAll(_items);
+      notifyListeners();
+    } catch (e) {
+      // rollback jika gagal
+      _items.insert(idx, removed);
+      rethrow;
+    }
   }
 
-  int get totalIncome => _items.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount);
-  int get totalExpense => _items.where((t) => !t.isIncome).fold(0, (s, t) => s + t.amount);
+  int get totalIncome =>
+      _items.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount);
+  int get totalExpense =>
+      _items.where((t) => !t.isIncome).fold(0, (s, t) => s + t.amount);
   int get balance => totalIncome - totalExpense;
 }
