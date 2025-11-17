@@ -106,10 +106,8 @@ class DashboardPage extends StatelessWidget {
     );
 
     if (fullWidth) {
-      // jangan bungkus Expanded jika ingin full width dalam Column
       return SizedBox(width: double.infinity, child: card);
     } else {
-      // saat dipakai di Row, bungkus Expanded agar seimbang
       return Expanded(child: card);
     }
   }

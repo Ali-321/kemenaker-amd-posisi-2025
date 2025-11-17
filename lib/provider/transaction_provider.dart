@@ -57,9 +57,8 @@ class TransactionProvider extends ChangeNotifier {
     }
   }
 
-  int get totalIncome =>
-      _items.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount);
-  int get totalExpense =>
-      _items.where((t) => !t.isIncome).fold(0, (s, t) => s + t.amount);
+
+  int get totalIncome => _items.where((t) => t.isIncome).fold(0, (s, t) => s + t.amount);
+  int get totalExpense => _items.where((t) => !t.isIncome).fold(0, (s, t) => s + t.amount);
   int get balance => totalIncome - totalExpense;
 }
